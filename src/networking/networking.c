@@ -1,0 +1,77 @@
+#include "networking.h"
+
+SOCKET sock;
+
+void error_exit(const char *message) {
+    perror(message);
+    exit(EXIT_FAILURE);
+}
+
+unsigned __stdcall receiveMessages(void *arg) {
+    SOCKET sock = *(SOCKET *)arg;
+    struct sockaddr_in client_addr;
+    int client_addr_len = sizeof(client_addr);
+    char buffer[BUFFER_SIZE];
+
+    while (1) {
+        memset(buffer, 0, BUFFER_SIZE);
+        int bytes_received = recvfrom(sock, buffer, BUFFER_SIZE - 1, 0, (struct sockaddr *)&client_addr, &client_addr_len);
+        if (bytes_received == SOCKET_ERROR) {
+            printf("recvfrom failed with error: %d\n", WSAGetLastError());
+            continue;
+        }
+        buffer[bytes_received] = '\0';
+        printf("Received message: %s\n", buffer);
+    }
+    return 0;
+}
+
+
+void setupSocket(){
+    WSADATA wsa;
+    struct sockaddr_in server_addr;
+
+    // Initialize Winsock
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+        error_exit("WSAStartup failed");
+    }
+
+    // Create a socket
+    if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) == INVALID_SOCKET) {
+        error_exit("Socket creation failed");
+    }
+
+    // Setup the server address
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(PORT);
+
+    // Bind the socket
+    if (bind(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
+        error_exit("Bind failed");
+    }
+
+    // Create a thread to listen for incoming messages
+    _beginthreadex(NULL, 0, receiveMessages, (void *)&sock, 0, NULL);
+
+}
+
+int sendMessage(char *message, char *dest_ip) {    // Send messages
+    struct sockaddr_in dest_addr;
+    dest_addr.sin_family = AF_INET;
+    dest_addr.sin_port = htons(PORT);
+
+    // Convert IPv4 address from text to binary form
+    if (inet_pton(AF_INET, dest_ip, &dest_addr.sin_addr.s_addr) <= 0) {
+        printf("Invalid address or Address not supported\n");
+        return -1; 
+    }
+
+    // Send the message
+    if (sendto(sock, message, strlen(message), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) == SOCKET_ERROR) {
+        printf("sendto failed with error\n");
+        return -1;
+    }
+
+    return 0; // Success
+}

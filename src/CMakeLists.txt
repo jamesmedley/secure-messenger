@@ -4,8 +4,7 @@ project(SECURE-MESSENGER)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
-set(GTK3_INCLUDE_DIRS "C:/msys64/mingw64/include/")
-set(GTK3_LIBRARY_DIRS "C:/msys64/mingw64/lib")
+# Paths for GTK3
 set(ENV{PKG_CONFIG_PATH} "C:/msys64/mingw64/lib/pkgconfig")
 
 find_package(PkgConfig REQUIRED)
@@ -15,6 +14,24 @@ include_directories(${GTK4_INCLUDE_DIRS})
 link_directories(${GTK4_LIBRARY_DIRS})
 add_definitions(${GTK4_CFLAGS_OTHER})
 
-add_executable(Messenger main.c gui/gui.c)
+# Add ONNX Runtime include and lib directories
+set(ONNX_RUNTIME_DIR "${CMAKE_SOURCE_DIR}/external/onnxruntime")
+include_directories(${ONNX_RUNTIME_DIR}/include)
+link_directories(${ONNX_RUNTIME_DIR}/lib)
+
+# Add source files
+add_executable(Messenger main.c gui/gui.c networking/networking.c) #ai_integration/anti_phishing.c)
 #set_target_properties(Messenger PROPERTIES WIN32_EXECUTABLE true)  # If you dont want console to run with your .exe
+
+# Link libraries
 target_link_libraries(Messenger ${GTK4_LIBRARIES})
+target_link_libraries(Messenger Ws2_32)
+
+#Link ONNX Runtime library
+if(WIN32)
+    target_link_libraries(Messenger onnxruntime)
+elseif(UNIX)
+    target_link_libraries(Messenger onnxruntime)
+endif()
+
+target_link_libraries(Messenger Ws2_32)

@@ -1,2 +1,4 @@
-/.vscode/
-/build/
+.vscode/
+build/
+python/model/
+src/external/
