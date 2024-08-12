@@ -1,0 +1,72 @@
+MESSENGER APP DATA TRANSFER PROTOCOL
+
+
+MESSAGE HEADERS:
+======================================================================
+
+
+MSG_TYPE(1B):  01: Client Hello
+               02: Server Hello
+               03: Client Key Exchange
+               04: Server Encrypted Handshake
+               05: Message
+
+
+MSG_CONTENT_LENGTH(4B)
+======================================================================
+
+
+MESSAGE CONTENT:
+======================================================================
+MSG_TYPE: 01
+MSG_CONTENT_LENGTH: 36 (32 bytes CLIENT_RANDOM and 4 bytes SESSIONID)
+MESSAGE CONTENT:
+   CLIENT_RANDOM: [32B] (consists of timestamp (4B) and client random (28B))
+   SESSIONID: [4B]
+
+
+MSG_TYPE: 02
+MSG_CONTENT_LENGTH: 36 (32 bytes SERVER_RANDOM and 4 bytes SESSIONID)
+MESSAGE CONTENT:
+   SERVER_RANDOM: [32B] (consists of timestamp (4B) and server random (28B))
+   SESSIONID: [4B]
+
+
+MSG_TYPE: 03
+MSG_CONTENT_LENGTH: <length_of_public_key>
+MESSAGE CONTENT:
+   CLIENT_PUBLIC_KEY: [variable length]
+
+
+MSG_TYPE: 04
+MSG_CONTENT_LENGTH: <length_of_encrypted_symmetric_key>
+MESSAGE CONTENT:
+   ENCRYPTED_SYMMETRIC_KEY: [variable length]
+
+
+MSG_TYPE: 05
+MSG_CONTENT_LENGTH: <length_of_encrypted_message>
+MESSAGE CONTENT:
+   ENCRYPTED_MESSAGE: [variable length]
+======================================================================
+
+
+
+
+
+
+Protocol Workflow
+1) Client Hello:
+   The client generates a CLIENT_RANDOM value and sends it along with a SESSIONID.
+
+2) Server Hello:
+   The server responds with a SERVER_RANDOM and the same SESSIONID.
+
+3) Client Key Exchange:
+   The client sends its RSA public key.
+
+4) Server Encrypted Handshake:
+   The server generates a symmetric key, encrypts it with the client's RSA public key, and sends the encrypted key back to the client.
+
+5) Message:
+   Both client and server can now use the symmetric key to encrypt and decrypt messages.

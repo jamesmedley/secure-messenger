@@ -1,4 +1,4 @@
 # Secure Messenger App
 
-- RSA Encryption 
+- RSA/AES E2E Encrypted 
 - AI Phishing Detection

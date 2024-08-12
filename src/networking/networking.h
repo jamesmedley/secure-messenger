@@ -11,4 +11,4 @@
 #define PORT 8888
 
 void setupSocket();
-int sendMessage(char *message, char *dest_ip);
+int networkMessage(char *message, size_t message_len, char *dest_ip);

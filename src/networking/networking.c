@@ -1,4 +1,5 @@
 #include "networking.h"
+#include "message_decoding.h"
 
 SOCKET sock;
 
@@ -15,17 +16,30 @@ unsigned __stdcall receiveMessages(void *arg) {
 
     while (1) {
         memset(buffer, 0, BUFFER_SIZE);
-        int bytes_received = recvfrom(sock, buffer, BUFFER_SIZE - 1, 0, (struct sockaddr *)&client_addr, &client_addr_len);
+        int bytes_received = recvfrom(sock, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&client_addr, &client_addr_len);
         if (bytes_received == SOCKET_ERROR) {
             printf("recvfrom failed with error: %d\n", WSAGetLastError());
             continue;
         }
-        buffer[bytes_received] = '\0';
-        printf("Received message: %s\n", buffer);
+
+
+        char *message = (char *)malloc(bytes_received);
+        if (message) {
+            memcpy(message, buffer, bytes_received);
+        }
+
+        char ip_address[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &client_addr.sin_addr, ip_address, sizeof(ip_address));
+        char *ip_address_copy = _strdup(ip_address);
+
+        decode_message_received(message, ip_address_copy);
+
+        // Clean up
+        free(message);
+        free(ip_address_copy);
     }
     return 0;
 }
-
 
 void setupSocket(){
     WSADATA wsa;
@@ -56,7 +70,7 @@ void setupSocket(){
 
 }
 
-int sendMessage(char *message, char *dest_ip) {    // Send messages
+int networkMessage(char *message, size_t message_len, char *dest_ip) {
     struct sockaddr_in dest_addr;
     dest_addr.sin_family = AF_INET;
     dest_addr.sin_port = htons(PORT);
@@ -68,7 +82,7 @@ int sendMessage(char *message, char *dest_ip) {    // Send messages
     }
 
     // Send the message
-    if (sendto(sock, message, strlen(message), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) == SOCKET_ERROR) {
+    if (sendto(sock, message, message_len, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) == SOCKET_ERROR) {
         printf("sendto failed with error\n");
         return -1;
     }
