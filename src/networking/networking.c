@@ -30,7 +30,7 @@ unsigned __stdcall receiveMessages(void *arg) {
 
         char ip_address[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &client_addr.sin_addr, ip_address, sizeof(ip_address));
-        char *ip_address_copy = _strdup(ip_address);
+        char *ip_address_copy = strdup(ip_address);
 
         decode_message_received(message, ip_address_copy);
 

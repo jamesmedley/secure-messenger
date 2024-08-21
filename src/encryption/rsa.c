@@ -1,49 +1,77 @@
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
 #include <openssl/err.h>
+#include <openssl/evp.h>
 #include <stdio.h>
+#include <string.h>
+#include "crypto_utils.h"
 
-RSA* generate_rsa_key(int bits) {
-    RSA *rsa = RSA_new();
-    BIGNUM *bne = BN_new();
-    BN_set_word(bne, RSA_F4);  // RSA_F4 is the public exponent
+#define KEY_LENGTH 2048
+#define PUB_EXP 65537
+#define PRINT_KEYS 1
+#define WRITE_TO_FILE 0
 
-    if (RSA_generate_key_ex(rsa, bits, bne, NULL) != 1) {
-        ERR_print_errors_fp(stderr);
-        RSA_free(rsa);
-        rsa = NULL;
+/* Generate RSA key pair */
+void generate_rsa_keypair(EVP_PKEY **pkey) {
+    EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
+    if (!ctx) {
+        // Handle error
     }
-
-    BN_free(bne);
-    return rsa;
+    if (EVP_PKEY_keygen_init(ctx) <= 0) {
+        // Handle error
+    }
+    if (EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, 2048) <= 0) {
+        // Handle error
+    }
+    if (EVP_PKEY_keygen(ctx, pkey) <= 0) {
+        // Handle error
+    }
+    EVP_PKEY_CTX_free(ctx);
 }
 
-void save_rsa_key(RSA *rsa, const char *pub_key_file, const char *priv_key_file) {
-    FILE *pub_file = fopen(pub_key_file, "wb");
-    FILE *priv_file = fopen(priv_key_file, "wb");
-    
-    if (pub_file && priv_file) {
-        PEM_write_RSAPublicKey(pub_file, rsa);
-        PEM_write_RSAPrivateKey(priv_file, rsa, NULL, NULL, 0, NULL, NULL);
-    }
+int rsa_encrypt(const unsigned char *plaintext, int plaintext_len, unsigned char *ciphertext, const char *pubkey_path) {
+    EVP_PKEY *pubkey = EVP_PKEY_new();
+    FILE *pubkey_file = fopen(pubkey_path, "r");
+    if (!pubkey_file) return -1;
 
-    fclose(pub_file);
-    fclose(priv_file);
+    PEM_read_PUBKEY(pubkey_file, &pubkey, NULL, NULL);
+    fclose(pubkey_file);
+
+    EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(pubkey, NULL);
+    if (!ctx) return -1;
+
+    if (EVP_PKEY_encrypt_init(ctx) <= 0) return -1;
+    size_t outlen;
+    if (EVP_PKEY_encrypt(ctx, NULL, &outlen, plaintext, plaintext_len) <= 0) return -1;
+    if (EVP_PKEY_encrypt(ctx, ciphertext, &outlen, plaintext, plaintext_len) <= 0) return -1;
+
+    EVP_PKEY_CTX_free(ctx);
+    EVP_PKEY_free(pubkey);
+    return outlen;
 }
 
-int rsa_encrypt(const unsigned char *data, int data_len, unsigned char *encrypted, RSA *rsa) {
-    int result = RSA_public_encrypt(data_len, data, encrypted, rsa, RSA_PKCS1_OAEP_PADDING);
-    if (result == -1) {
-        ERR_print_errors_fp(stderr);
-    }
-    return result;
+int rsa_decrypt(const unsigned char *ciphertext, int ciphertext_len, unsigned char *plaintext, const char *privkey_path) {
+    EVP_PKEY *privkey = EVP_PKEY_new();
+    FILE *privkey_file = fopen(privkey_path, "r");
+    if (!privkey_file) return -1;
+
+    PEM_read_PrivateKey(privkey_file, &privkey, NULL, NULL);
+    fclose(privkey_file);
+
+    EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(privkey, NULL);
+    if (!ctx) return -1;
+
+    if (EVP_PKEY_decrypt_init(ctx) <= 0) return -1;
+    size_t outlen;
+    if (EVP_PKEY_decrypt(ctx, NULL, &outlen, ciphertext, ciphertext_len) <= 0) return -1;
+    if (EVP_PKEY_decrypt(ctx, plaintext, &outlen, ciphertext, ciphertext_len) <= 0) return -1;
+
+    EVP_PKEY_CTX_free(ctx);
+    EVP_PKEY_free(privkey);
+    return outlen;
 }
 
-int main() {
-    RSA *rsa = generate_rsa_key(2048);  // Generate 2048-bit RSA key
-    if (rsa) {
-        save_rsa_key(rsa, "client_public.pem", "client_private.pem");
-        RSA_free(rsa);
-    }
-    return 0;
+/* Utility function to print RSA keys */
+void print_key(const char *label, const unsigned char *key) {
+    printf("%s:\n%s\n", label, key);
 }

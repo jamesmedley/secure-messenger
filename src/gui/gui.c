@@ -3,8 +3,7 @@
 #include "gui_utils.h"
 #include "../networking/networking.h"
 #include "../networking/tls_handler.h"
-
-gchar *destination_ip = "127.0.0.1"; // localhost by default
+#include "../encryption/aes1.h"
 
 GtkWidget *window;
 GtkWidget *box;
@@ -17,6 +16,8 @@ GtkWidget *text_view;
 GtkWidget *entry_message;
 GtkTextBuffer *buffer;
 GAsyncQueue *message_queue;
+
+SessionData *session;
 
 gboolean process_message_queue(gpointer user_data) {
     MessageQueueData *msg_data;
@@ -50,7 +51,22 @@ void on_display_message(GtkWidget *entry, gpointer user_data) {
     const gchar *text = gtk_editable_get_text(GTK_EDITABLE(entry));
     if (g_strcmp0(text, "") != 0) { // Check if the entry is not empty
 
-        send_message(text, strlen(text), destination_ip);
+        int plaintext_len = strlen(text);
+        unsigned char *ciphertext = (unsigned char *)malloc(plaintext_len + EVP_MAX_BLOCK_LENGTH);
+        if (ciphertext == NULL) {
+            perror("Failed to allocate memory for ciphertext");
+            return;
+        }
+        // Encrypt the plaintext
+        int ciphertext_len = encrypt_aes(session->encrypted_symmetric_key, session->iv, (unsigned char *)text, plaintext_len, ciphertext);
+        if (ciphertext_len == -1) {
+            fprintf(stderr, "Encryption failed\n");
+            free(ciphertext);
+            return;
+        }
+
+        // Send the encrypted message
+        send_message((const char *)ciphertext, ciphertext_len, session->src_ip_address);
         push_message_to_queue(name, text);
         gtk_editable_set_text(GTK_EDITABLE(entry), ""); // Clear the entry widget
     }
@@ -62,23 +78,122 @@ void on_set_ip(GtkWidget *button_ip, gpointer user_data){
     GtkLabel *label_ip = data->label_ip;
 
     const gchar *text = gtk_editable_get_text(GTK_EDITABLE(entry_ip));
+    send_client_hello(convert_const_to_non_const(text));
+
     if (g_strcmp0(text, "") != 0) { // TODO: verify string is valid IP address
-        destination_ip = convert_const_to_non_const(text); // set destination IP to new ip
         const gchar *prepend_text = "Chatting to: ";
         gchar *new_text = prepend_string(text, prepend_text);
         gtk_label_set_text(label_ip, new_text);
         g_free(new_text);
-    }
+    } 
 }
 
-void on_receive_message(const gchar *name, const gchar *message){
-    push_message_to_queue(name, message);
+void on_receive_message(const gchar *name, const gchar *message, int message_len){
+    unsigned char *decryptedtext = (unsigned char *)malloc(message_len + 1); 
+       
+    int decryptedtext_len = decrypt_aes(session->encrypted_symmetric_key, session->iv, message, message_len, decryptedtext);
+    if (decryptedtext_len < 0) {
+        fprintf(stderr, "Decryption failed\n");
+        return;
+    }
+    decryptedtext[decryptedtext_len] = '\0'; // Null-terminate the decrypted string
+    push_message_to_queue(name, (const gchar *)decryptedtext);
 }
+
+void on_choose(GObject *source_object, GAsyncResult *res, gpointer user_data) {
+    GtkAlertDialog *dialog = GTK_ALERT_DIALOG(source_object);
+    GError *err = NULL;
+    gchar **params = (gchar **)user_data;
+    gchar *src_ip_address = params[0];
+    int button = gtk_alert_dialog_choose_finish(dialog, res, &err);
+
+    if(err) {
+        g_print("An error occured!\n");
+        g_print("Error Message: %s\n", err->message);
+        g_error_free(err);
+        err = NULL;
+        return;
+    }
+    switch(button){
+        case 0:
+            break;
+        case 1:
+            // generate session_id
+            int session_id = 1; // e.g.
+            send_server_hello(session_id, src_ip_address);
+            const gchar *prepend_text = "Chatting to: "; // set new ip in chatting to label
+            gchar *new_text = prepend_string(src_ip_address, prepend_text);
+            gtk_label_set_text(GTK_LABEL(label_ip), new_text);
+            gtk_editable_set_text(GTK_EDITABLE(entry_ip), src_ip_address);
+            g_free(new_text);
+            break;
+        default:
+            g_assert_not_reached();
+            break;
+    }}
+
+int alert_dialog_thread_safe(gpointer user_data) {
+    gchar **params = (gchar **)user_data;
+    gchar *src_ip_address = params[0];
+    // Create and display alert dialog
+    if (window) {
+        GtkAlertDialog *dialog = gtk_alert_dialog_new("Connection Request");
+        const char* buttons[] = {"Decline", "Accept", NULL};
+        gtk_alert_dialog_set_detail(dialog, g_strdup_printf("%s wants to chat...", src_ip_address));
+        gtk_alert_dialog_set_buttons(dialog, buttons);
+        gtk_alert_dialog_set_cancel_button(dialog, 0);
+        gtk_alert_dialog_set_default_button(dialog, 1);
+        gtk_alert_dialog_choose(dialog, GTK_WINDOW(window), NULL, on_choose, user_data);
+    } else {
+        g_print("Error: Main window is not initialized.\n");
+    }
+    g_free(params);
+
+    return FALSE;
+}
+
+void on_new_session(gchar *encrypted_symmetric_key, gchar *iv, int key_length, gchar *src_ip_address){
+    // Save session data
+    session->encrypted_symmetric_key = g_strdup(encrypted_symmetric_key);
+    session->iv = g_strdup(iv);
+    session->key_length = key_length; 
+    session->src_ip_address = g_strdup(src_ip_address);
+    print_hex("Generated Symmetric Key", session->encrypted_symmetric_key, 32);
+    print_hex("Generated IV", session->iv, 16);
+    printf("src_ip_address: %s\n", session->src_ip_address); 
+}
+
+void on_connection_req(gchar *src_ip_address){
+    gchar **params = g_new(gchar*, 1);
+    params[0] = g_strdup(src_ip_address);
+    g_idle_add(alert_dialog_thread_safe, params);
+}
+
 
 void activate(GtkApplication *app, gpointer user_data) {
     set_gui_update_callback(on_receive_message);
+    set_new_session_callback(on_new_session);
+    set_connection_req_callback(on_connection_req);
     setupSocket();
     init_tls_handler();
+
+
+    // initialise localhost session 
+    initialize_openssl();
+    unsigned char symmetric_key[32];
+    unsigned char iv[16];
+    if (generate_keys(symmetric_key, iv) != 0) {
+        fprintf(stderr, "Key generation failed\n");
+        cleanup_openssl();
+        return;
+    }
+    cleanup_openssl();
+
+    session = g_malloc(sizeof(SessionData));
+    session->encrypted_symmetric_key = g_strdup(symmetric_key);
+    session->iv = g_strdup(iv);
+    session->key_length = 32;
+    session->src_ip_address = "127.0.0.1"; // localhost by default
 
     message_queue = g_async_queue_new();
 
@@ -98,14 +213,14 @@ void activate(GtkApplication *app, gpointer user_data) {
     // ip entry
     entry_ip = gtk_entry_new();
     gtk_box_append(GTK_BOX(box_ip), entry_ip);
-    gtk_editable_set_text(GTK_EDITABLE(entry_ip), destination_ip);
+    gtk_editable_set_text(GTK_EDITABLE(entry_ip), session->src_ip_address);
 
     // set ip button
     button_ip = gtk_button_new_with_label("Set Destination IP");
     gtk_box_append(GTK_BOX(box_ip), button_ip);
 
     // ip info label
-    gchar *new_text = append_string("Chatting to: ", destination_ip);
+    gchar *new_text = append_string("Chatting to: ", session->src_ip_address);
     label_ip = gtk_label_new(new_text);
     g_free(new_text);
     gtk_box_append(GTK_BOX(box_ip), label_ip);

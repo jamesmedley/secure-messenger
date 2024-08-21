@@ -39,9 +39,10 @@ MESSAGE CONTENT:
 
 
 MSG_TYPE: 04
-MSG_CONTENT_LENGTH: <length_of_encrypted_symmetric_key>
+MSG_CONTENT_LENGTH: 48
 MESSAGE CONTENT:
-   ENCRYPTED_SYMMETRIC_KEY: [variable length]
+   ENCRYPTED_SYMMETRIC_KEY: 32 bytes
+   IV: 16 bytes
 
 
 MSG_TYPE: 05

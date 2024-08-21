@@ -84,11 +84,11 @@ char* construct_client_key_exchange(const char *client_public_key, int public_ke
     return message;
 }
 
-char* construct_server_encrypted_handshake(const char *encrypted_symmetric_key, int key_length) {
+char* construct_server_encrypted_handshake(const char *encrypted_symmetric_key, const char *iv, int key_length) {
     char msg_type = 0x04;  // Server Encrypted Handshake
 
     // Allocate memory for the message
-    char *message = (char *)malloc(1 + 4 + key_length);  // MSG_TYPE + MSG_CONTENT_LENGTH + ENCRYPTED_SYMMETRIC_KEY
+    char *message = (char *)malloc(1 + 4 + key_length + 16);  // MSG_TYPE + MSG_CONTENT_LENGTH + ENCRYPTED_SYMMETRIC_KEY + IV
     if (message == NULL) {
         perror("Failed to allocate memory");
         exit(EXIT_FAILURE);
@@ -98,6 +98,7 @@ char* construct_server_encrypted_handshake(const char *encrypted_symmetric_key, 
     message[0] = msg_type;
     addIntToCharArray(message, key_length, 1);  // Add content length
     memcpy(&message[5], encrypted_symmetric_key, key_length);  // Add encrypted symmetric key
+    memcpy(&message[5+key_length], iv, 16);  // Add IV
 
     return message;
 }

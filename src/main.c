@@ -1,8 +1,8 @@
 #include <gtk/gtk.h>
 #include "gui/gui.h"
-#include <windows.h>
 
 int main(int argc, char **argv) {
+    
     GtkApplication *app;
     int status;
     app = gtk_application_new("com.example.messenger", G_APPLICATION_DEFAULT_FLAGS);

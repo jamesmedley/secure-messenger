@@ -16,14 +16,19 @@ void call_client_key_exchange(void (*callback)(const char *client_public_key, in
     receive_client_key_exchange = callback;
 }
 
-static void (*receive_server_encrypted_handshake)(const char *encrypted_symmetric_key, int key_length, char *src_ip_address) = NULL;
-void call_server_encrypted_handshake(void (*callback)(const char *encrypted_symmetric_key, int key_length, char *src_ip_address)) {
+static void (*receive_server_encrypted_handshake)(char *encrypted_symmetric_key, char *iv, int key_length, char *src_ip_address) = NULL;
+void call_server_encrypted_handshake(void (*callback)(char *encrypted_symmetric_key, char *iv, int key_length, char *src_ip_address)) {
     receive_server_encrypted_handshake = callback;
 }
 
-static void (*receive_message)(const char *msg_content, int content_length, char *src_ip_address) = NULL;
-void call_message(void (*callback)(const char *msg_content, int content_length, char *src_ip_address)) {
+static void (*receive_message)(const char *msg_content, int content_len, char *src_ip_address) = NULL;
+void call_message(void (*callback)(const char *msg_content, int content_len, char *src_ip_address)) {
     receive_message = callback;
+}
+
+static void (*receive_session_accept)(char *src_ip_address) = NULL;
+void call_session_accept(void (*callback)(char *src_ip_address)) {
+    receive_session_accept = callback;
 }
 
 
@@ -42,14 +47,6 @@ void decode_client_hello(const char *message, char *src_ip_address) {
     memcpy(client_random, &message[5], 32);
     int session_id = charArrayToInt(message, 37);
 
-    printf("Client Hello:\n");
-    printf("Content Length: %d\n", msg_content_length);
-    printf("Client Random: ");
-    for (int i = 0; i < 32; ++i) {
-        printf("%02x ", (unsigned char)client_random[i]);
-    }
-    printf("\nSession ID: %d\n", session_id);
-
     receive_client_hello(src_ip_address);
 
 }
@@ -61,14 +58,6 @@ void decode_server_hello(const char *message, char *src_ip_address) {
     memcpy(server_random, &message[5], 32);
     int session_id = charArrayToInt(message, 37);
 
-    printf("Server Hello:\n");
-    printf("Content Length: %d\n", msg_content_length);
-    printf("Server Random: ");
-    for (int i = 0; i < 32; ++i) {
-        printf("%02x ", (unsigned char)server_random[i]);
-    }
-    printf("\nSession ID: %d\n", session_id);
-
     receive_server_hello(session_id, src_ip_address);
 
 }
@@ -79,14 +68,6 @@ void decode_client_key_exchange(const char *message, char *src_ip_address) {
     char *client_public_key = (char *)malloc(msg_content_length);
     memcpy(client_public_key, &message[5], msg_content_length);
 
-    printf("Client Key Exchange:\n");
-    printf("Content Length: %d\n", msg_content_length);
-    printf("Client Public Key: ");
-    for (int i = 0; i < msg_content_length; ++i) {
-        printf("%02x ", (unsigned char)client_public_key[i]);
-    }
-    printf("\n");
-
     receive_client_key_exchange(client_public_key, msg_content_length, src_ip_address);
 
     free(client_public_key);
@@ -96,19 +77,15 @@ void decode_client_key_exchange(const char *message, char *src_ip_address) {
 void decode_server_encrypted_handshake(const char *message_str, char *src_ip_address) {
     int msg_content_length = charArrayToInt(message_str, 1);
     char *encrypted_symmetric_key = (char *)malloc(msg_content_length);
+    char *iv = (char *)malloc(16);
     memcpy(encrypted_symmetric_key, &message_str[5], msg_content_length);
+    memcpy(iv, &message_str[5+msg_content_length], 16);
 
-    printf("Server Encrypted Handshake:\n");
-    printf("Content Length: %d\n", msg_content_length);
-    printf("Encrypted Symmetric Key: ");
-    for (int i = 0; i < msg_content_length; ++i) {
-        printf("%02x ", (unsigned char)encrypted_symmetric_key[i]);
-    }
-    printf("\n");
-
-    receive_server_encrypted_handshake(encrypted_symmetric_key, msg_content_length, src_ip_address);
+    
+    receive_server_encrypted_handshake(encrypted_symmetric_key, iv, msg_content_length, src_ip_address);
 
     free(encrypted_symmetric_key);
+    free(iv);
 }
 
 // Function to decode a generic message

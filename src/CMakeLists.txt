@@ -1,48 +1,86 @@
 cmake_minimum_required(VERSION 3.5)
+
 project(SECURE-MESSENGER)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
-# Paths for GTK3
-set(ENV{PKG_CONFIG_PATH} "C:/msys64/mingw64/lib/pkgconfig")
+# Add source files
+file(GLOB_RECURSE NETWORKING "networking/*.c")
+file(GLOB_RECURSE NETWORKING_H "networking/*.h")
+file(GLOB_RECURSE GUI "gui/*.c")
+file(GLOB_RECURSE GUI_H "gui/*.h")
+file(GLOB_RECURSE ENC "encryption/*.c")
+file(GLOB_RECURSE ENC_H "encryption/*.h")
 
+add_executable(Messenger
+    main.c
+    ${ENC}
+    ${ENC_H}
+    ${GUI}
+    ${GUI_H}
+    ${NETWORKING}
+    ${NETWORKING_H}
+)
+
+# Include directories for external libraries
+include_directories(src/external/onnxruntime/include)
+
+# Link directories for external libraries (if needed)
+link_directories(src/external/onnxruntime/lib)
+
+# Find GTK4 using pkg-config
 find_package(PkgConfig REQUIRED)
+
+# Set the PKG_CONFIG_PATH environment variable if needed (adjust the path as necessary)
+set(ENV{PKG_CONFIG_PATH} "C:/msys64/ucrt64/lib/pkgconfig")
+
+# Check for GTK4 package
 pkg_check_modules(GTK4 REQUIRED gtk4)
 
+# Include GTK4 directories
 include_directories(${GTK4_INCLUDE_DIRS})
-link_directories(${GTK4_LIBRARY_DIRS})
-add_definitions(${GTK4_CFLAGS_OTHER})
 
-# Add ONNX Runtime include and lib directories
-set(ONNX_RUNTIME_DIR "${CMAKE_SOURCE_DIR}/external/onnxruntime")
-include_directories(${ONNX_RUNTIME_DIR}/include)
-link_directories(${ONNX_RUNTIME_DIR}/lib)
+# Link GTK4 libraries
+target_link_libraries(Messenger PRIVATE ${GTK4_LIBRARIES} ws2_32)
 
-# Add OpenSSL include and lib directories
-set(OPENSSL_ROOT_DIR "C:/msys64/mingw64/include/openssl")  # Update this path to your OpenSSL installation
-include_directories(${OPENSSL_ROOT_DIR}/include)
-link_directories(${OPENSSL_ROOT_DIR}/lib)
+# Find OpenSSL package
+find_package(OpenSSL REQUIRED)
 
-file(GLOB NETWORKING_SOURCES "${CMAKE_SOURCE_DIR}/networking/*.c")
-file(GLOB GUI_SOURCES "${CMAKE_SOURCE_DIR}/gui/*.c")
-
-# Add source files
-add_executable(Messenger main.c ${GUI_SOURCES} ${NETWORKING_SOURCES}) #ai_integration/anti_phishing.c)
-#set_target_properties(Messenger PROPERTIES WIN32_EXECUTABLE true)  # If you dont want console to run with your .exe
-
-# Link libraries
-target_link_libraries(Messenger ${GTK4_LIBRARIES})
-target_link_libraries(Messenger Ws2_32)
-
-#Link ONNX Runtime library
-if(WIN32)
-    target_link_libraries(Messenger onnxruntime)
-elseif(UNIX)
-    target_link_libraries(Messenger onnxruntime)
-endif()
+# Include OpenSSL directories
+include_directories(${OPENSSL_INCLUDE_DIR})
 
 # Link OpenSSL libraries
-target_link_libraries(Messenger libssl libcrypto)
+target_link_libraries(Messenger PRIVATE ${OPENSSL_LIBRARIES})
 
-target_link_libraries(Messenger Ws2_32)
+# Add GTK4-specific compile flags (optional)
+add_definitions(${GTK4_CFLAGS_OTHER})
+
+
+# Add CPack configuration
+set(CPACK_GENERATOR "ZIP;NSIS") # Choose ZIP and NSIS as generators
+set(CPACK_PACKAGE_NAME "SecureMessenger")
+set(CPACK_PACKAGE_VERSION "1.1.0")
+set(CPACK_PACKAGE_VENDOR "jamesm")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Secure Messenger Application")
+set(CPACK_PACKAGE_EXECUTABLES "Messenger" "Secure Messenger")
+set(CPACK_NSIS_DISPLAY_NAME "Secure Messenger")
+set(CPACK_NSIS_INSTALLED_ICON_NAME "Messenger.exe")
+
+# Add any additional files or directories you want to include in the package
+install(TARGETS Messenger DESTINATION .)
+set(GTK4_BIN_DIR "C:/msys64/ucrt64/bin")
+# Install all .dll files and gdbus.exe
+install(DIRECTORY "${GTK4_BIN_DIR}/" 
+    DESTINATION .
+    FILES_MATCHING PATTERN "*.dll" 
+                   PATTERN "gdbus.exe"
+)
+set(ONNX_RUNTIME_DIR "${CMAKE_SOURCE_DIR}/external/onnxruntime")
+install(FILES 
+    "${ONNX_RUNTIME_DIR}/lib/onnxruntime.dll"
+    DESTINATION .
+)
+
+# Run CPack
+include(CPack)
