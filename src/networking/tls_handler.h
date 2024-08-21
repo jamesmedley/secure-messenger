@@ -6,6 +6,7 @@
 #include "networking.h"
 #include "../encryption/aes1.h"
 #include "../encryption/crypto_utils.h"
+#include "../encryption/rsa1.h"
 
 
 

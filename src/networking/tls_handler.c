@@ -1,5 +1,7 @@
 #include "tls_handler.h"
 
+EVP_PKEY *rsa_keypair;
+
 static void (*gui_update_callback)(const char *name, const char *message, int message_len) = NULL;
 void set_gui_update_callback(void (*callback)(const char *name, const char *message, int message_len)) {
     gui_update_callback = callback;
@@ -60,11 +62,23 @@ void receive_client_hello(char *src_ip_address){ // SERVER
 
 void receive_server_hello(int session_id, char *src_ip_address){ // CLIENT
     // generate RSA keys
-    // send public key 
-    const char *client_public_key = "foo";
-    int public_key_length = 3;
+    rsa_keypair = generate_rsa_keypair();
+    if (!rsa_keypair) {
+        fprintf(stderr, "Key generation failed\n");
+        return;
+    }
 
-    send_client_key_exchange(client_public_key, public_key_length, src_ip_address);
+    const char *public_key = extract_public_key(rsa_keypair);
+    if (!public_key) {
+        fprintf(stderr, "Error extracting public key\n");
+        EVP_PKEY_free(rsa_keypair);
+        return;
+    }
+    // send public key 
+    
+    int public_key_length = strlen(public_key);
+
+    send_client_key_exchange(public_key, public_key_length, src_ip_address);
 }
 
 void receive_client_key_exchange(const char *client_public_key, int public_key_length, char *src_ip_address){ // SERVER
@@ -77,17 +91,56 @@ void receive_client_key_exchange(const char *client_public_key, int public_key_l
         cleanup_openssl();
         return;
     }
+    
+    EVP_PKEY *public_key = load_public_key_from_string(client_public_key);
+    if (!public_key) {
+        fprintf(stderr, "Error loading public key from string\n");
+        free((void *)client_public_key);
+        return;
+    }
 
-    // TODO: encrypt symmetric key with client_public_key
+    unsigned char ciphertext[256];
+    int ciphertext_len = rsa_encrypt(public_key, (const unsigned char *)symmetric_key, 32, ciphertext);
+
+    if (ciphertext_len == -1) {
+        fprintf(stderr, "RSA encryption failed\n");
+        free(public_key);
+        EVP_PKEY_free(public_key);
+        return;
+    }
+
     new_session_callback(symmetric_key, iv, 32, src_ip_address); // set server session info
-    send_server_encrypted_handshake(symmetric_key, iv, 32, src_ip_address);
+    send_server_encrypted_handshake(ciphertext, iv, 256, src_ip_address);
     cleanup_openssl();
+    EVP_PKEY_free(public_key);
 }
 
 void receive_server_encrypted_handshake(char *encrypted_symmetric_key, char *iv, int key_length, char *src_ip_address){ // CLIENT
     
+    char *private_key_str = extract_private_key(rsa_keypair);
+    if (!private_key_str) {
+        fprintf(stderr, "Error extracting keys\n");
+        EVP_PKEY_free(rsa_keypair);
+        return;
+    }
+
+
+    EVP_PKEY *private_key = load_private_key_from_string(private_key_str);
+    if (!private_key) {
+        fprintf(stderr, "Error loading private key from string\n");
+        free(private_key_str);
+        EVP_PKEY_free(rsa_keypair);
+        return;
+    }
+
+    unsigned char decrypted_key[256];
+    int decryptedtext_len = rsa_decrypt(private_key, encrypted_symmetric_key, key_length, decrypted_key); // broke
+    
+    free(private_key_str);
+    EVP_PKEY_free(private_key);
+    EVP_PKEY_free(rsa_keypair);
     // decrypt symmetric key with client private key
-    new_session_callback(encrypted_symmetric_key, iv, key_length, src_ip_address);  // callback to gui to set state to session established
+    new_session_callback(decrypted_key, iv, key_length, src_ip_address);  // callback to gui to set state to session established
 }
 
 void receive_message(const char *msg_content, int content_len, char *src_ip_address){ // CLIENT/SERVER
