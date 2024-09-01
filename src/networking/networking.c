@@ -81,11 +81,10 @@ int networkMessage(char *message, size_t message_len, char *dest_ip) {
         return -1; 
     }
 
-    // Send the message
     if (sendto(sock, message, message_len, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) == SOCKET_ERROR) {
         printf("sendto failed with error\n");
         return -1;
     }
 
-    return 0; // Success
+    return 0;
 }

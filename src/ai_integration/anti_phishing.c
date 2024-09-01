@@ -1,8 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
-#include <onnxruntime_c_api.h>
-#include <onnxruntime_run_options_config_keys.h>
+#include "anti_phishing.h"
 
 const OrtApi* OrtApiHandle = NULL;
 

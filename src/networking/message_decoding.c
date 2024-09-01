@@ -1,24 +1,29 @@
 #include "message_decoding.h"
 
 
-static void (*receive_client_hello)(char *src_ip_address) = NULL;
-void call_client_hello(void (*callback)(char *src_ip_address)) {
+static void (*receive_client_hello)(char *src_ip_address, int seq_num, int session_id, char *client_random) = NULL;
+void call_client_hello(void (*callback)(char *src_ip_address, int seq_num, int session_id, char *client_random)) {
     receive_client_hello = callback;
 }
 
-static void (*receive_server_hello)(int session_id, char *src_ip_address) = NULL;
-void call_server_hello(void (*callback)(int session_id, char *src_ip_address)) {
+static void (*receive_server_hello)(char *src_ip_address, int seq_num, int session_id, char *server_random, char *server_public_key) = NULL;
+void call_server_hello(void (*callback)(char *src_ip_address, int seq_num, int session_id, char *server_random, char *server_public_key)) {
     receive_server_hello = callback;
 }
 
-static void (*receive_client_key_exchange)(const char *client_public_key, int public_key_length, char *src_ip_address) = NULL;
-void call_client_key_exchange(void (*callback)(const char *client_public_key, int public_key_length, char *src_ip_address)) {
+static void (*receive_client_key_exchange)(char *src_ip_address, int seq_num, char *encrypted_premaster) = NULL;
+void call_client_key_exchange(void (*callback)(char *src_ip_address, int seq_num, char *encrypted_premaster)) {
     receive_client_key_exchange = callback;
 }
 
-static void (*receive_server_encrypted_handshake)(char *encrypted_symmetric_key, char *iv, int key_length, char *src_ip_address) = NULL;
-void call_server_encrypted_handshake(void (*callback)(char *encrypted_symmetric_key, char *iv, int key_length, char *src_ip_address)) {
-    receive_server_encrypted_handshake = callback;
+static void (*receive_client_ready)(char *src_ip_address, int seq_num, char *handshake_hash) = NULL;
+void call_client_ready(void (*callback)(char *src_ip_address, int seq_num, char *handshake_hash)) {
+    receive_client_ready = callback;
+}
+
+static void (*receive_server_ready)(char *src_ip_address, int seq_num, char *handshake_hash) = NULL;
+void call_server_ready(void (*callback)(char *src_ip_address, int seq_num, char *handshake_hash)) {
+    receive_server_ready = callback;
 }
 
 static void (*receive_message)(const char *msg_content, int content_len, char *src_ip_address) = NULL;
@@ -42,51 +47,64 @@ int charArrayToInt(const char *array, int startIndex) {
 
 // Function to decode a Client Hello message
 void decode_client_hello(const char *message, char *src_ip_address) {
-    int msg_content_length = charArrayToInt(message, 1);
+    int sequence_number = charArrayToInt(message, 1);  
+    int msg_content_length = charArrayToInt(message, 5); 
     char client_random[32];
-    memcpy(client_random, &message[5], 32);
-    int session_id = charArrayToInt(message, 37);
-
-    receive_client_hello(src_ip_address);
-
+    memcpy(client_random, &message[9], 32); 
+    int session_id = charArrayToInt(message, 41); 
+    receive_client_hello(src_ip_address, sequence_number, session_id, client_random); 
 }
 
 // Function to decode a Server Hello message
 void decode_server_hello(const char *message, char *src_ip_address) {
-    int msg_content_length = charArrayToInt(message, 1);
+    int sequence_number = charArrayToInt(message, 1);  
+    int msg_content_length = charArrayToInt(message, 5); 
     char server_random[32];
-    memcpy(server_random, &message[5], 32);
-    int session_id = charArrayToInt(message, 37);
+    memcpy(server_random, &message[9], 32); 
+    int session_id = charArrayToInt(message, 41); 
 
-    receive_server_hello(session_id, src_ip_address);
+    int public_key_len = msg_content_length-36;
+    char server_public_key[public_key_len];
+    memcpy(server_public_key, &message[45], public_key_len); 
+
+    receive_server_hello(src_ip_address, sequence_number, session_id, server_random, server_public_key);
 
 }
 
 // Function to decode a Client Key Exchange message
 void decode_client_key_exchange(const char *message, char *src_ip_address) {
-    int msg_content_length = charArrayToInt(message, 1);
-    char *client_public_key = (char *)malloc(msg_content_length);
-    memcpy(client_public_key, &message[5], msg_content_length);
+    int sequence_number = charArrayToInt(message, 1);  
+    int msg_content_length = charArrayToInt(message, 5); 
+    char *encrypted_premaster = (char *)malloc(msg_content_length);
+    memcpy(encrypted_premaster, &message[9], msg_content_length);
 
-    receive_client_key_exchange(client_public_key, msg_content_length, src_ip_address);
+    receive_client_key_exchange(src_ip_address, sequence_number, encrypted_premaster);
 
-    free(client_public_key);
+    free(encrypted_premaster);
 }
 
-// Function to decode a Server Encrypted Handshake message
-void decode_server_encrypted_handshake(const char *message_str, char *src_ip_address) {
-    int msg_content_length = charArrayToInt(message_str, 1);
-    char *encrypted_symmetric_key = (char *)malloc(msg_content_length);
-    char *iv = (char *)malloc(16);
-    memcpy(encrypted_symmetric_key, &message_str[5], msg_content_length);
-    memcpy(iv, &message_str[5+msg_content_length], 16);
+// Function to decode a client ready message
+void decode_client_ready(const char *message, char *src_ip_address) {
+    int sequence_number = charArrayToInt(message, 1);  
+    int msg_content_length = charArrayToInt(message, 5); 
+    char *handshake_hash = (char *)malloc(msg_content_length);
+    memcpy(handshake_hash, &message[9], msg_content_length);
+    receive_client_ready(src_ip_address, sequence_number, handshake_hash);
 
-    
-    receive_server_encrypted_handshake(encrypted_symmetric_key, iv, msg_content_length, src_ip_address);
-
-    free(encrypted_symmetric_key);
-    free(iv);
+    free(handshake_hash);
 }
+
+// Function to decode a server ready message
+void decode_server_ready(const char *message, char *src_ip_address) {
+    int sequence_number = charArrayToInt(message, 1);  
+    int msg_content_length = charArrayToInt(message, 5); 
+    char *handshake_hash = (char *)malloc(msg_content_length);
+    memcpy(handshake_hash, &message[9], msg_content_length);
+    receive_server_ready(src_ip_address, sequence_number, handshake_hash);
+
+    free(handshake_hash);
+}
+
 
 // Function to decode a generic message
 void decode_message(const char *message, char *src_ip_address) {
@@ -127,9 +145,12 @@ void decode_message_received(const char *message, char *src_ip_address) {
             decode_client_key_exchange(message, src_ip_address);
             break;
         case 0x04:
-            decode_server_encrypted_handshake(message, src_ip_address);
+            decode_client_ready(message, src_ip_address);        
             break;
         case 0x05:
+            decode_server_ready(message, src_ip_address);        
+            break;
+        case 0x06:
             decode_message(message, src_ip_address);
             break;
         default:

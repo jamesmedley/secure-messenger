@@ -58,7 +58,7 @@ void on_display_message(GtkWidget *entry, gpointer user_data) {
             return;
         }
         // Encrypt the plaintext
-        int ciphertext_len = encrypt_aes(session->encrypted_symmetric_key, session->iv, (unsigned char *)text, plaintext_len, ciphertext);
+        int ciphertext_len = encrypt_aes(session->symmetric_key, session->iv, (unsigned char *)text, plaintext_len, ciphertext);
         if (ciphertext_len == -1) {
             fprintf(stderr, "Encryption failed\n");
             free(ciphertext);
@@ -67,6 +67,7 @@ void on_display_message(GtkWidget *entry, gpointer user_data) {
 
         // Send the encrypted message
         send_message((const char *)ciphertext, ciphertext_len, session->src_ip_address);
+        free(ciphertext);
         push_message_to_queue(name, text);
         gtk_editable_set_text(GTK_EDITABLE(entry), ""); // Clear the entry widget
     }
@@ -91,13 +92,14 @@ void on_set_ip(GtkWidget *button_ip, gpointer user_data){
 void on_receive_message(const gchar *name, const gchar *message, int message_len){
     unsigned char *decryptedtext = (unsigned char *)malloc(message_len + 1); 
        
-    int decryptedtext_len = decrypt_aes(session->encrypted_symmetric_key, session->iv, message, message_len, decryptedtext);
+    int decryptedtext_len = decrypt_aes(session->symmetric_key, session->iv, message, message_len, decryptedtext);
     if (decryptedtext_len < 0) {
         fprintf(stderr, "Decryption failed\n");
         return;
     }
     decryptedtext[decryptedtext_len] = '\0'; // Null-terminate the decrypted string
     push_message_to_queue(name, (const gchar *)decryptedtext);
+    free(decryptedtext);
 }
 
 void on_choose(GObject *source_object, GAsyncResult *res, gpointer user_data) {
@@ -152,15 +154,19 @@ int alert_dialog_thread_safe(gpointer user_data) {
     return FALSE;
 }
 
-void on_new_session(gchar *encrypted_symmetric_key, gchar *iv, int key_length, gchar *src_ip_address){
+void on_new_session(gchar *symmetric_key, gchar *iv, int key_length, gchar *src_ip_address){
     // Save session data
-    session->encrypted_symmetric_key = g_strdup(encrypted_symmetric_key);
+    free(session->iv);
+    free(session->symmetric_key);
+    free(session);
+    session = g_malloc(sizeof(SessionData));
+    session->symmetric_key = g_strdup(symmetric_key);
     session->iv = g_strdup(iv);
     session->key_length = key_length; 
     session->src_ip_address = g_strdup(src_ip_address);
-    print_hex("Generated Symmetric Key", session->encrypted_symmetric_key, 32);
-    print_hex("Generated IV", session->iv, 16);
-    printf("src_ip_address: %s\n", session->src_ip_address); 
+    // print_hex("Generated Symmetric Key", session->symmetric_key, 32);
+    // print_hex("Generated IV", session->iv, 16);
+    // printf("src_ip_address: %s\n", session->src_ip_address); 
 }
 
 void on_connection_req(gchar *src_ip_address){
@@ -177,7 +183,6 @@ void activate(GtkApplication *app, gpointer user_data) {
     setupSocket();
     init_tls_handler();
 
-
     // initialise localhost session 
     initialize_openssl();
     unsigned char symmetric_key[32];
@@ -190,7 +195,7 @@ void activate(GtkApplication *app, gpointer user_data) {
     cleanup_openssl();
 
     session = g_malloc(sizeof(SessionData));
-    session->encrypted_symmetric_key = g_strdup(symmetric_key);
+    session->symmetric_key = g_strdup(symmetric_key);
     session->iv = g_strdup(iv);
     session->key_length = 32;
     session->src_ip_address = "127.0.0.1"; // localhost by default

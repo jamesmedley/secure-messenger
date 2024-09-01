@@ -60,7 +60,7 @@ add_definitions(${GTK4_CFLAGS_OTHER})
 # Add CPack configuration
 set(CPACK_GENERATOR "ZIP;NSIS") # Choose ZIP and NSIS as generators
 set(CPACK_PACKAGE_NAME "SecureMessenger")
-set(CPACK_PACKAGE_VERSION "1.1.0")
+set(CPACK_PACKAGE_VERSION "1.2.0")
 set(CPACK_PACKAGE_VENDOR "jamesm")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Secure Messenger Application")
 set(CPACK_PACKAGE_EXECUTABLES "Messenger" "Secure Messenger")

@@ -2,7 +2,7 @@
 
 #define RSA_KEY_BITS 2048
 
-EVP_PKEY *generate_rsa_keypair() {
+EVP_PKEY *generate_rsa_keypair() { // public key length: 256 bytes
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
     

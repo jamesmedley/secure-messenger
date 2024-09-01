@@ -24,7 +24,7 @@ y = y.map({'ham': 0, 'spam': 1})
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Create a pipeline with TF-IDF vectorization and Logistic Regression
+# Create a pipeline with TF-IDF vectorization and SVM Regression
 pipeline = Pipeline([
     ('tfidf', TfidfVectorizer(lowercase=False, stop_words='english')),
     ('clf', SVC())

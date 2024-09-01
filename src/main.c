@@ -1,6 +1,5 @@
 #include <gtk/gtk.h>
 #include "gui/gui.h"
-
 #include "encryption/rsa1.h"
 
 

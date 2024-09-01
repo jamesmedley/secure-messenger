@@ -1,9 +1,8 @@
 MESSENGER APP DATA TRANSFER PROTOCOL
 
 
-MESSAGE HEADERS:
 ======================================================================
-
+MESSAGE HEADERS:
 
 MSG_TYPE(1B):  01: Client Hello
                02: Server Hello
@@ -12,41 +11,44 @@ MSG_TYPE(1B):  01: Client Hello
                05: Message
 
 
-MSG_CONTENT_LENGTH(4B)
+MSG_CONTENT_LENGTH(4B): <length of content>
 ======================================================================
-
-
 MESSAGE CONTENT:
-======================================================================
-MSG_TYPE: 01
-MSG_CONTENT_LENGTH: 36 (32 bytes CLIENT_RANDOM and 4 bytes SESSIONID)
+
+MSG_TYPE(1B): 01
+SEQ_NUM(4B): <sequence number>
+MSG_CONTENT_LENGTH(4B): 36 (32 bytes CLIENT_RANDOM and 4 bytes SESSIONID)
 MESSAGE CONTENT:
    CLIENT_RANDOM: [32B] (consists of timestamp (4B) and client random (28B))
    SESSIONID: [4B]
 
 
-MSG_TYPE: 02
-MSG_CONTENT_LENGTH: 36 (32 bytes SERVER_RANDOM and 4 bytes SESSIONID)
+MSG_TYPE(1B): 02
+SEQ_NUM(4B): <sequence number>
+MSG_CONTENT_LENGTH(4B): 36 (32 bytes SERVER_RANDOM and 4 bytes SESSIONID)
 MESSAGE CONTENT:
    SERVER_RANDOM: [32B] (consists of timestamp (4B) and server random (28B))
    SESSIONID: [4B]
 
 
-MSG_TYPE: 03
-MSG_CONTENT_LENGTH: <length_of_public_key>
+MSG_TYPE(1B): 03
+SEQ_NUM(4B): <sequence number>
+MSG_CONTENT_LENGTH(4B): <length_of_public_key>
 MESSAGE CONTENT:
    CLIENT_PUBLIC_KEY: [variable length]
 
 
-MSG_TYPE: 04
-MSG_CONTENT_LENGTH: 48
+MSG_TYPE(1B): 04
+SEQ_NUM(4B): <sequence number>
+MSG_CONTENT_LENGTH(4B): 48
 MESSAGE CONTENT:
    ENCRYPTED_SYMMETRIC_KEY: 32 bytes
    IV: 16 bytes
 
 
-MSG_TYPE: 05
-MSG_CONTENT_LENGTH: <length_of_encrypted_message>
+MSG_TYPE(1B): 05
+SEQ_NUM(4B): <sequence number>
+MSG_CONTENT_LENGTH(4B): <length_of_encrypted_message>
 MESSAGE CONTENT:
    ENCRYPTED_MESSAGE: [variable length]
 ======================================================================

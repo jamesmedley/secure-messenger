@@ -20,7 +20,7 @@ typedef struct {
 } MessageQueueData;
 
 typedef struct {
-    gchar *encrypted_symmetric_key;
+    gchar *symmetric_key;
     gchar *iv;
     int key_length;
     gchar *src_ip_address;

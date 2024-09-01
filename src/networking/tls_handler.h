@@ -1,6 +1,7 @@
 #include <openssl/rand.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "message_decoding.h"
 #include "message_encoding.h"
 #include "networking.h"
@@ -8,7 +9,20 @@
 #include "../encryption/crypto_utils.h"
 #include "../encryption/rsa1.h"
 
+typedef struct {
+    int curr_seq_num;
+    int session_id;
+    char *client_random;
+    char *server_random;
+    char *premaster_secret;
+    char *handshake_hash;
+} HandshakeData;
 
+typedef struct {
+    char *symmetric_key;
+    char *iv;
+    int key_length;
+} KeyData;
 
 void set_gui_update_callback(void (*callback)(const char *name, const char *message, int message_len));
 void set_new_session_callback(void (*callback)(char *encrypted_symmetric_key, char *iv, int key_length, char *src_ip_address));
