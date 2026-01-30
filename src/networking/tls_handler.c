@@ -26,6 +26,7 @@ void set_connection_req_callback(void (*callback)(char *src_ip_address)) {
 void send_client_hello(char *destination_ip){ // CLIENT
     char *client_hello = construct_client_hello();
     size_t message_len = 45;
+    print_hex("CLIENT HELLO", client_hello, message_len);
     
     handshake_client = malloc(sizeof(HandshakeData));
     handshake_client -> curr_seq_num = charArrayToInt(client_hello, 1);
@@ -58,6 +59,7 @@ void send_server_hello(int session_id, char *destination_ip){ // SERVER
     
     char *server_hello = construct_server_hello(session_id, (handshake_server->curr_seq_num)+1, public_key, public_key_length); //increment seq_num
     size_t message_len = 1 + 4 + 4 + 32 + 4 + public_key_length;
+    print_hex("SERVER HELLO", server_hello, message_len);
 
     char server_random[32];
     memcpy(server_random, &server_hello[9], 32);
@@ -70,6 +72,7 @@ void send_server_hello(int session_id, char *destination_ip){ // SERVER
 void send_client_key_exchange(const char *encrypted_premaster, char *destination_ip){ // CLIENT
     char *client_key_exchange = construct_client_key_exchange(encrypted_premaster, (handshake_client->curr_seq_num)+1);
     size_t message_len = 256 + 9;
+    print_hex("CLIENT KEY EXCHANGE", client_key_exchange, message_len);
     networkMessage(client_key_exchange, message_len, destination_ip);
     free(client_key_exchange);
 }
@@ -77,6 +80,7 @@ void send_client_key_exchange(const char *encrypted_premaster, char *destination
 void send_client_ready(const char *handshake_hash, char *destination_ip){
     char *ready = construct_client_ready(handshake_hash, 1); // TODO: change seq num to correct handshake data
     size_t message_len = 9 + strlen(handshake_hash); // TODO: change length when implement hash function
+    print_hex("CLIENT ready", ready, message_len);
     networkMessage(ready, message_len, destination_ip);
     free(ready);
 }

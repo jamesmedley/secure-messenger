@@ -35,7 +35,7 @@ char* construct_client_hello() {
     addIntToCharArray(message, msg_content_length, 5);  // Add content length (starting at index 5)
     memcpy(&message[9], client_random, 32);  // Add client random (starting at index 9)
     addIntToCharArray(message, session_id, 41);  // Add session id (starting at index 41)
-
+    
     return message;
 }
 
@@ -74,7 +74,7 @@ char* construct_client_key_exchange(const char *encrypted_premaster, int seq_num
     int msg_content_length = 256;
 
     // Allocate memory for the message
-    char *message = (char *)malloc(1 + 4 + 4 + msg_content_length);  // MSG_TYPE + SEQUENCE_NUMBER + MSG_CONTENT_LENGTH + CLIENT_PUBLIC_KEY
+    char *message = (char *)malloc(1 + 4 + 4 + msg_content_length);  // MSG_TYPE + SEQUENCE_NUMBER + MSG_CONTENT_LENGTH + ENC_PREMASTER
     if (message == NULL) {
         perror("Failed to allocate memory");
         exit(EXIT_FAILURE);
@@ -82,8 +82,8 @@ char* construct_client_key_exchange(const char *encrypted_premaster, int seq_num
 
     // Construct the message
     message[0] = msg_type;
-    addIntToCharArray(message, seq_num, 1);  // Add sequence number (starting at index 1)
-    addIntToCharArray(message, msg_content_length, 5);  // Add content length (starting at index 5)
+    addIntToCharArray(message, msg_content_length, 1);  // Add content length (starting at index 1)
+    addIntToCharArray(message, seq_num, 5);  // Add sequence number (starting at index 5)
     memcpy(&message[9], encrypted_premaster, msg_content_length);
 
     return message;

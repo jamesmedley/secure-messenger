@@ -81,7 +81,7 @@ int generate_keys(unsigned char *key, unsigned char *iv){
 void print_hex(const char *label, const unsigned char *data, int len) {
     printf("%s: ", label);
     for (int i = 0; i < len; i++) {
-        printf("%02x", data[i]);
+        printf("%02x ", data[i]);
     }
     printf("\n");
 }

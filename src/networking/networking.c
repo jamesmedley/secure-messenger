@@ -22,7 +22,6 @@ unsigned __stdcall receiveMessages(void *arg) {
             continue;
         }
 
-
         char *message = (char *)malloc(bytes_received);
         if (message) {
             memcpy(message, buffer, bytes_received);
@@ -34,7 +33,6 @@ unsigned __stdcall receiveMessages(void *arg) {
 
         decode_message_received(message, ip_address_copy);
 
-        // Clean up
         free(message);
         free(ip_address_copy);
     }
@@ -67,7 +65,6 @@ void setupSocket(){
 
     // Create a thread to listen for incoming messages
     _beginthreadex(NULL, 0, receiveMessages, (void *)&sock, 0, NULL);
-
 }
 
 int networkMessage(char *message, size_t message_len, char *dest_ip) {
